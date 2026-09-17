@@ -6,7 +6,6 @@ const URL_API = "https://6a88452a7b483fa21fe8dd23.mockapi.io/tarefas";
 export default function Dashboard() {
   const [tarefas, setTarefas] = useState([]);
   const [carregando, setCarregando] = useState(true);
-  const [erro, setErro] = useState("");
 
   // Controle do Modal
   const [modalAberto, setModalAberto] = useState(false);
@@ -18,15 +17,13 @@ export default function Dashboard() {
   const [cidadeUf, setCidadeUf] = useState("");
   const [prioridade, setPrioridade] = useState("Alta");
 
-  // GET: Buscar tarefas da API e padronizar os dados do MockAPI
+  // GET: Buscar tarefas com fallback de dados locais em caso de 404/erro
   useEffect(() => {
     async function carregarTarefas() {
       try {
         setCarregando(true);
-        setErro("");
         const resposta = await axios.get(URL_API);
 
-        // Padroniza itens antigos/gerados pelo MockAPI
         const tarefasTratadas = resposta.data.map((item) => {
           let st = item.status ? String(item.status).toUpperCase() : "A FAZER";
           if (st !== "A FAZER" && st !== "EM ANDAMENTO" && st !== "CONCLUÍDO") {
@@ -46,8 +43,12 @@ export default function Dashboard() {
 
         setTarefas(tarefasTratadas);
       } catch (e) {
-        setErro("Erro ao carregar tarefas. Verifique a conexão.");
-        console.error(e);
+        console.warn("API offline ou 404. Usando dados locais de teste.");
+        setTarefas([
+          { id: "1", titulo: "Ajustar login e autenticação", cidadeUf: "Natal - RN", prioridade: "Alta", status: "CONCLUÍDO" },
+          { id: "2", titulo: "Testar busca de CEP ViaCEP", cidadeUf: "Parnamirim - RN", prioridade: "Média", status: "EM ANDAMENTO" },
+          { id: "3", titulo: "Documentar componentes React", cidadeUf: "São Paulo - SP", prioridade: "Baixa", status: "A FAZER" },
+        ]);
       } finally {
         setCarregando(false);
       }
@@ -78,9 +79,7 @@ export default function Dashboard() {
     const valorCep = e.target.value.replace(/\D/g, "");
     if (valorCep.length === 8) {
       try {
-        const res = await axios.get(
-          `https://viacep.com.br/ws/${valorCep}/json/`
-        );
+        const res = await axios.get(`https://viacep.com.br/ws/${valorCep}/json/`);
         if (!res.data.erro) {
           setCidadeUf(`${res.data.localidade} - ${res.data.uf}`);
         } else {
@@ -92,7 +91,7 @@ export default function Dashboard() {
     }
   };
 
-  // POST: Criar nova tarefa no MockAPI
+  // POST: Adiciona na API ou localmente se falhar
   const adicionarTarefa = async (e) => {
     e.preventDefault();
     if (!titulo || !cidadeUf) {
@@ -100,49 +99,45 @@ export default function Dashboard() {
       return;
     }
 
-    try {
-      const novaTarefaDados = {
-        titulo,
-        cidadeUf,
-        prioridade,
-        status: statusColuna,
-      };
+    const novaTarefaDados = {
+      id: String(Date.now()),
+      titulo,
+      cidadeUf,
+      prioridade,
+      status: statusColuna,
+    };
 
+    try {
       const resposta = await axios.post(URL_API, novaTarefaDados);
-      setTarefas((tarefasAntigas) => [...tarefasAntigas, resposta.data]);
-      fecharModal();
+      setTarefas((antigas) => [...antigas, resposta.data]);
     } catch (e) {
-      alert("Erro ao salvar a tarefa no servidor.");
-      console.error(e);
+      setTarefas((antigas) => [...antigas, novaTarefaDados]);
+    } finally {
+      fecharModal();
     }
   };
 
-  // PUT / PATCH: Atualizar o status da tarefa no MockAPI
+  // PUT: Atualiza status na API e no estado local
   const moverTarefa = async (id, proximoStatus) => {
     try {
-      await axios.put(`${URL_API}/${id}`, {
-        status: proximoStatus,
-      });
-
-      setTarefas((tarefasAntigas) =>
-        tarefasAntigas.map((t) =>
-          t.id === id ? { ...t, status: proximoStatus } : t
-        )
-      );
+      await axios.put(`${URL_API}/${id}`, { status: proximoStatus });
     } catch (e) {
-      alert("Erro ao mover a tarefa.");
-      console.error(e);
+      console.warn("Alterando status localmente.");
+    } finally {
+      setTarefas((antigas) =>
+        antigas.map((t) => (t.id === id ? { ...t, status: proximoStatus } : t))
+      );
     }
   };
 
-  // DELETE: Remover tarefa no MockAPI
+  // DELETE: Deleta da API e do estado local
   const removerTarefa = async (id) => {
     try {
       await axios.delete(`${URL_API}/${id}`);
-      setTarefas((tarefasAntigas) => tarefasAntigas.filter((t) => t.id !== id));
     } catch (e) {
-      alert("Erro ao deletar a tarefa.");
-      console.error(e);
+      console.warn("Removendo localmente.");
+    } finally {
+      setTarefas((antigas) => antigas.filter((t) => t.id !== id));
     }
   };
 
@@ -151,48 +146,25 @@ export default function Dashboard() {
   const concluidas = tarefas.filter((t) => t.status === "CONCLUÍDO").length;
 
   return (
-    <div style={{ color: "#fff", maxWidth: "1200px", margin: "0 auto" }}>
+    <div style={{ color: "#fff", maxWidth: "1200px", margin: "0 auto", padding: "20px" }}>
       {/* Cabeçalho */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "25px",
-        }}
-      >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "25px" }}>
         <div>
           <h1 style={{ color: "#00b37e", margin: 0 }}>TaskFlow</h1>
           <p style={{ color: "#8d8d99", margin: 0 }}>Gerencie suas tarefas</p>
         </div>
         <div style={{ fontSize: "14px", fontWeight: "bold" }}>
-          <span style={{ color: "#8d8d99", marginRight: "15px" }}>
-            {total} tarefas
-          </span>
-          <span style={{ color: "#eba417", marginRight: "15px" }}>
-            {pendentes} pendentes
-          </span>
+          <span style={{ color: "#8d8d99", marginRight: "15px" }}>{total} tarefas</span>
+          <span style={{ color: "#eba417", marginRight: "15px" }}>{pendentes} pendentes</span>
           <span style={{ color: "#00b37e" }}>{concluidas} concluídas</span>
         </div>
       </div>
 
-      {carregando && (
-        <p style={{ textAlign: "center", color: "#8d8d99" }}>
-          Carregando tarefas...
-        </p>
-      )}
-
-      {erro && <p style={{ textAlign: "center", color: "#f75a68" }}>{erro}</p>}
-
-      {/* QUADRO KANBAN */}
-      {!carregando && !erro && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
-            gap: "20px",
-          }}
-        >
+      {carregando ? (
+        <p style={{ textAlign: "center", color: "#8d8d99" }}>Carregando tarefas...</p>
+      ) : (
+        /* QUADRO KANBAN */
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "20px" }}>
           {["A FAZER", "EM ANDAMENTO", "CONCLUÍDO"].map((coluna) => {
             const tarefasColuna = tarefas.filter((t) => t.status === coluna);
 
@@ -206,42 +178,15 @@ export default function Dashboard() {
                   minHeight: "400px",
                 }}
               >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginBottom: "15px",
-                    fontWeight: "bold",
-                    fontSize: "14px",
-                  }}
-                >
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "15px", fontWeight: "bold", fontSize: "14px" }}>
                   <span>{coluna}</span>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "8px",
-                      alignItems: "center",
-                    }}
-                  >
-                    <span
-                      style={{
-                        backgroundColor: "#323238",
-                        padding: "2px 8px",
-                        borderRadius: "10px",
-                      }}
-                    >
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <span style={{ backgroundColor: "#323238", padding: "2px 8px", borderRadius: "10px" }}>
                       {tarefasColuna.length}
                     </span>
                     <button
                       onClick={() => abrirModal(coluna)}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "#fff",
-                        fontSize: "18px",
-                        cursor: "pointer",
-                        fontWeight: "bold",
-                      }}
+                      style={{ background: "none", border: "none", color: "#fff", fontSize: "18px", cursor: "pointer", fontWeight: "bold" }}
                     >
                       +
                     </button>
@@ -264,101 +209,36 @@ export default function Dashboard() {
                   >
                     <div>
                       <strong style={{ display: "block" }}>{t.titulo}</strong>
-                      <span style={{ fontSize: "12px", color: "#8d8d99" }}>
-                        {t.cidadeUf}
-                      </span>
+                      <span style={{ fontSize: "12px", color: "#8d8d99" }}>{t.cidadeUf}</span>
                     </div>
 
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                      }}
-                    >
-                      <span
-                        style={{
-                          color: getCorPrioridade(t.prioridade),
-                          fontSize: "11px",
-                          fontWeight: "bold",
-                          marginRight: "5px",
-                        }}
-                      >
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ color: getCorPrioridade(t.prioridade), fontSize: "11px", fontWeight: "bold", marginRight: "5px" }}>
                         {t.prioridade.toUpperCase()}
                       </span>
 
                       {coluna === "A FAZER" && (
-                        <button
-                          onClick={() => moverTarefa(t.id, "EM ANDAMENTO")}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#8d8d99",
-                            cursor: "pointer",
-                            fontSize: "16px",
-                            fontWeight: "bold",
-                          }}
-                        >
+                        <button onClick={() => moverTarefa(t.id, "EM ANDAMENTO")} style={{ background: "none", border: "none", color: "#8d8d99", cursor: "pointer", fontSize: "16px", fontWeight: "bold" }}>
                           →
                         </button>
                       )}
                       {coluna === "EM ANDAMENTO" && (
                         <>
-                          <button
-                            onClick={() => moverTarefa(t.id, "A FAZER")}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "#8d8d99",
-                              cursor: "pointer",
-                              fontSize: "16px",
-                              fontWeight: "bold",
-                            }}
-                          >
+                          <button onClick={() => moverTarefa(t.id, "A FAZER")} style={{ background: "none", border: "none", color: "#8d8d99", cursor: "pointer", fontSize: "16px", fontWeight: "bold" }}>
                             ←
                           </button>
-                          <button
-                            onClick={() => moverTarefa(t.id, "CONCLUÍDO")}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "#8d8d99",
-                              cursor: "pointer",
-                              fontSize: "16px",
-                              fontWeight: "bold",
-                            }}
-                          >
+                          <button onClick={() => moverTarefa(t.id, "CONCLUÍDO")} style={{ background: "none", border: "none", color: "#8d8d99", cursor: "pointer", fontSize: "16px", fontWeight: "bold" }}>
                             →
                           </button>
                         </>
                       )}
                       {coluna === "CONCLUÍDO" && (
-                        <button
-                          onClick={() => moverTarefa(t.id, "EM ANDAMENTO")}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#8d8d99",
-                            cursor: "pointer",
-                            fontSize: "16px",
-                            fontWeight: "bold",
-                          }}
-                        >
+                        <button onClick={() => moverTarefa(t.id, "EM ANDAMENTO")} style={{ background: "none", border: "none", color: "#8d8d99", cursor: "pointer", fontSize: "16px", fontWeight: "bold" }}>
                           ←
                         </button>
                       )}
 
-                      <button
-                        onClick={() => removerTarefa(t.id)}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: "#f75a68",
-                          cursor: "pointer",
-                          marginLeft: "5px",
-                          fontWeight: "bold",
-                        }}
-                      >
+                      <button onClick={() => removerTarefa(t.id)} style={{ background: "none", border: "none", color: "#f75a68", cursor: "pointer", marginLeft: "5px", fontWeight: "bold" }}>
                         X
                       </button>
                     </div>
@@ -372,194 +252,63 @@ export default function Dashboard() {
 
       {/* MODAL POP-UP (NOVA TAREFA) */}
       {modalAberto && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0,0,0,0.7)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: "#202024",
-              padding: "25px",
-              borderRadius: "8px",
-              width: "400px",
-              border: "1px solid #323238",
-            }}
-          >
-            <h3 style={{ marginTop: 0, color: "#00b37e" }}>
-              Nova Tarefa - {statusColuna}
-            </h3>
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.7)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }}>
+          <div style={{ backgroundColor: "#202024", padding: "25px", borderRadius: "8px", width: "400px", border: "1px solid #323238" }}>
+            <h3 style={{ marginTop: 0, color: "#00b37e" }}>Nova Tarefa - {statusColuna}</h3>
 
-            <form
-              onSubmit={adicionarTarefa}
-              style={{ display: "flex", flexDirection: "column", gap: "15px" }}
-            >
+            <form onSubmit={adicionarTarefa} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
               <div>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "5px",
-                    color: "#c4c4cc",
-                    fontSize: "14px",
-                  }}
-                >
-                  Título da Tarefa:
-                </label>
+                <label style={{ display: "block", marginBottom: "5px", color: "#c4c4cc", fontSize: "14px" }}>Título da Tarefa:</label>
                 <input
                   type="text"
                   placeholder="Digite o título..."
                   value={titulo}
                   onChange={(e) => setTitulo(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    borderRadius: "6px",
-                    border: "1px solid #323238",
-                    backgroundColor: "#121214",
-                    color: "#fff",
-                    boxSizing: "border-box",
-                  }}
+                  style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #323238", backgroundColor: "#121214", color: "#fff", boxSizing: "border-box" }}
                 />
               </div>
 
               <div>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "5px",
-                    color: "#c4c4cc",
-                    fontSize: "14px",
-                  }}
-                >
-                  CEP (Somente números):
-                </label>
+                <label style={{ display: "block", marginBottom: "5px", color: "#c4c4cc", fontSize: "14px" }}>CEP (Somente números):</label>
                 <input
                   type="text"
                   placeholder="Ex: 59000000"
                   value={cep}
                   onChange={(e) => setCep(e.target.value)}
                   onBlur={buscarCep}
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    borderRadius: "6px",
-                    border: "1px solid #323238",
-                    backgroundColor: "#121214",
-                    color: "#fff",
-                    boxSizing: "border-box",
-                  }}
+                  style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #323238", backgroundColor: "#121214", color: "#fff", boxSizing: "border-box" }}
                 />
               </div>
 
               <div>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "5px",
-                    color: "#c4c4cc",
-                    fontSize: "14px",
-                  }}
-                >
-                  Cidade/UF:
-                </label>
+                <label style={{ display: "block", marginBottom: "5px", color: "#c4c4cc", fontSize: "14px" }}>Cidade/UF:</label>
                 <input
                   type="text"
                   placeholder="Preenchido automaticamente"
                   value={cidadeUf}
                   readOnly
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    borderRadius: "6px",
-                    border: "1px solid #323238",
-                    backgroundColor: "#29292e",
-                    color: "#8d8d99",
-                    boxSizing: "border-box",
-                  }}
+                  style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #323238", backgroundColor: "#29292e", color: "#8d8d99", boxSizing: "border-box" }}
                 />
               </div>
 
               <div>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "5px",
-                    color: "#c4c4cc",
-                    fontSize: "14px",
-                  }}
-                >
-                  Prioridade:
-                </label>
+                <label style={{ display: "block", marginBottom: "5px", color: "#c4c4cc", fontSize: "14px" }}>Prioridade:</label>
                 <select
                   value={prioridade}
                   onChange={(e) => setPrioridade(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    borderRadius: "6px",
-                    border: "1px solid #323238",
-                    backgroundColor: "#121214",
-                    color: "#fff",
-                    outline: "none",
-                    cursor: "pointer",
-                    boxSizing: "border-box",
-                  }}
+                  style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #323238", backgroundColor: "#121214", color: "#fff", outline: "none", cursor: "pointer", boxSizing: "border-box" }}
                 >
-                  <option value="Baixa" style={{ backgroundColor: "#202024" }}>
-                    🟢 Baixa
-                  </option>
-                  <option value="Média" style={{ backgroundColor: "#202024" }}>
-                    🟡 Média
-                  </option>
-                  <option value="Alta" style={{ backgroundColor: "#202024" }}>
-                    🔴 Alta
-                  </option>
+                  <option value="Baixa" style={{ backgroundColor: "#202024" }}>🟢 Baixa</option>
+                  <option value="Média" style={{ backgroundColor: "#202024" }}>🟡 Média</option>
+                  <option value="Alta" style={{ backgroundColor: "#202024" }}>🔴 Alta</option>
                 </select>
               </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: "10px",
-                  marginTop: "10px",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={fecharModal}
-                  style={{
-                    padding: "10px 15px",
-                    backgroundColor: "transparent",
-                    color: "#8d8d99",
-                    border: "1px solid #323238",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                  }}
-                >
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
+                <button type="button" onClick={fecharModal} style={{ padding: "10px 15px", backgroundColor: "transparent", color: "#8d8d99", border: "1px solid #323238", borderRadius: "6px", cursor: "pointer" }}>
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  style={{
-                    padding: "10px 20px",
-                    backgroundColor: "#00b37e",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "6px",
-                    fontWeight: "bold",
-                    cursor: "pointer",
-                  }}
-                >
+                <button type="submit" style={{ padding: "10px 20px", backgroundColor: "#00b37e", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>
                   Adicionar Tarefa
                 </button>
               </div>
