@@ -4,7 +4,7 @@ const api = axios.create({
   baseURL: 'http://localhost:3001',
 });
 
-// Anexa automaticamente o Token JWT salvo no localStorage em todas as chamadas
+// Interceptor de REQUISIÇÃO (Injeta o Token JWT)
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -12,5 +12,18 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+// Interceptor de RESPOSTA (Captura 401 e desloga)
+api.interceptors.response.use(
+  (resposta) => resposta,
+  (erro) => {
+    if (erro.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('usuario');
+      window.location.href = '/login';
+    }
+    return Promise.reject(erro);
+  }
+);
 
 export default api;

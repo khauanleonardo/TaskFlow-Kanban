@@ -1,317 +1,417 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
-import Sidebar from '../components/Sidebar'; // Garanta que o caminho para a Sidebar está correto
+import { Plus, ArrowLeft, ArrowRight, Trash2, Pencil, MapPin, GripVertical } from 'lucide-react';
 
 export default function Kanban() {
   const [tarefas, setTarefas] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
 
-  // Estados do formulário
-  const [novaTarefaTexto, setNovaTarefaTexto] = useState('');
-  const [prioridade, setPrioridade] = useState('media');
+  // Drag and drop
+  const [cardArrastadoId, setCardArrastadoId] = useState(null);
+  const [colunaSobrevoada, setColunaSobrevoada] = useState(null);
+
+  // Modais
+  const [modalAberto, setModalAberto] = useState(false);
+  const [tarefaEmEdicao, setTarefaEmEdicao] = useState(null);
+  const [tarefaParaExcluir, setTarefaParaExcluir] = useState(null);
+
+  // Formulário
+  const [titulo, setTitulo] = useState('');
+  const [descricao, setDescricao] = useState('');
+  const [prioridade, setPrioridade] = useState('MEDIA');
+  const [colunaDestino, setColunaDestino] = useState('A FAZER');
   const [cep, setCep] = useState('');
-  const [endereco, setEndereco] = useState('');
+  const [cidade, setCidade] = useState('');
+  const [uf, setUf] = useState('');
+  const [bairro, setBairro] = useState('');
+  const [rua, setRua] = useState('');
   const [buscandoCep, setBuscandoCep] = useState(false);
 
-  // --- CAPÍTULO 7: BUSCAR TAREFAS (GET) ---
   useEffect(() => {
-    async function carregarTarefas() {
-      try {
-        setCarregando(true);
-        setErro('');
-        const resposta = await api.get('/tarefas');
-        setTarefas(resposta.data);
-      } catch (e) {
-        setErro('Erro ao carregar tarefas. Verifique se o servidor backend está rodando.');
-        console.error(e);
-      } finally {
-        setCarregando(false);
-      }
-    }
-
     carregarTarefas();
   }, []);
 
-  // --- BUSCA AUTOMÁTICA DE CEP (ViaCEP) ---
-  const handleCepChange = async (e) => {
-    const valorCep = e.target.value.replace(/\D/g, ''); // Remove caracteres não numéricos
-    setCep(valorCep);
+  async function carregarTarefas() {
+    try {
+      setCarregando(true);
+      setErro('');
+      const resposta = await api.get('/tarefas');
+      setTarefas(resposta.data);
+    } catch (e) {
+      setErro('Erro ao carregar tarefas. Verifique se a API está ligada.');
+    } finally {
+      setCarregando(false);
+    }
+  }
 
-    if (valorCep.length === 8) {
-      try {
-        setBuscandoCep(true);
-        const res = await fetch(`https://viacep.com.br/ws/${valorCep}/json/`);
-        const data = await res.json();
+  // Permite APENAS números de 0 a 9 e insere o hífen automaticamente
+  function handleCepChange(e) {
+    const apenasNumeros = e.target.value.replace(/\D/g, ''); // Remove letras e símbolos
+    if (apenasNumeros.length > 8) return;
 
-        if (!data.erro) {
-          setEndereco(`${data.logradouro}, ${data.bairro} - ${data.localidade}/${data.uf}`);
-        } else {
-          setEndereco('CEP não encontrado.');
-        }
-      } catch (err) {
-        console.error('Erro ao buscar CEP:', err);
-        setEndereco('Erro ao consultar CEP.');
-      } finally {
-        setBuscandoCep(false);
+    // Máscara 00000-000
+    let formatado = apenasNumeros;
+    if (apenasNumeros.length > 5) {
+      formatado = `${apenasNumeros.slice(0, 5)}-${apenasNumeros.slice(5)}`;
+    }
+    setCep(formatado);
+
+    // Consulta automática ao atingir 8 dígitos
+    if (apenasNumeros.length === 8) {
+      consultarViaCep(apenasNumeros);
+    }
+  }
+
+  async function consultarViaCep(digitos) {
+    try {
+      setBuscandoCep(true);
+      const res = await fetch(`https://viacep.com.br/ws/${digitos}/json/`);
+      const dados = await res.json();
+      if (!dados.erro) {
+        setCidade(dados.localidade || '');
+        setUf(dados.uf || '');
+        setBairro(dados.bairro || '');
+        setRua(dados.logradouro || '');
       }
-    } else {
-      setEndereco('');
+    } catch (err) {
+      console.error('Erro no ViaCEP', err);
+    } finally {
+      setBuscandoCep(false);
     }
-  };
+  }
 
-  // --- CAPÍTULO 8: CRIAR TAREFA (POST) ---
-  async function handleCriarTarefa(e) {
+  function abrirNovo(coluna) {
+    setTarefaEmEdicao(null);
+    setColunaDestino(coluna);
+    setTitulo('');
+    setDescricao('');
+    setPrioridade('MEDIA');
+    setCep('');
+    setCidade('');
+    setUf('');
+    setBairro('');
+    setRua('');
+    setModalAberto(true);
+  }
+
+  function abrirEdicao(t) {
+    setTarefaEmEdicao(t);
+    setColunaDestino(t.coluna || 'A FAZER');
+    setTitulo(t.titulo || '');
+    setDescricao(t.descricao || '');
+    setPrioridade(t.prioridade || 'MEDIA');
+    setCep(t.endereco?.cep || t.cep || '');
+    setCidade(t.endereco?.cidade || t.cidade || '');
+    setUf(t.endereco?.uf || t.uf || '');
+    setBairro(t.endereco?.bairro || t.bairro || '');
+    setRua(t.endereco?.rua || t.rua || '');
+    setModalAberto(true);
+  }
+
+  async function salvarTarefa(e) {
     e.preventDefault();
-    if (!novaTarefaTexto.trim()) return;
+    const dados = {
+      titulo,
+      descricao,
+      prioridade,
+      coluna: colunaDestino,
+      cidadeUf: cidade && uf ? `${cidade} - ${uf}` : cidade || '',
+      endereco: { cep, cidade, uf, bairro, rua }
+    };
 
     try {
-      setErro('');
-      const payload = {
-        texto: novaTarefaTexto,
-        coluna: 'afazer',
-        prioridade: prioridade,
-        cep: cep,
-        endereco: endereco
-      };
-
-      const resposta = await api.post('/tarefas', payload);
-
-      setTarefas((prev) => [...prev, resposta.data]);
-      setNovaTarefaTexto('');
-      setCep('');
-      setEndereco('');
-      setPrioridade('media');
+      if (tarefaEmEdicao) {
+        const res = await api.put(`/tarefas/${tarefaEmEdicao.id}`, dados);
+        setTarefas(tarefas.map(t => t.id === tarefaEmEdicao.id ? res.data : t));
+      } else {
+        const res = await api.post('/tarefas', dados);
+        setTarefas([...tarefas, res.data]);
+      }
+      setModalAberto(false);
     } catch (err) {
-      console.error(err);
-      const msg = err.response?.data?.erros?.join(', ') || err.response?.data?.erro || 'Erro ao criar tarefa.';
-      setErro(`Não foi possível criar: ${msg}`);
+      alert('Erro ao salvar tarefa');
     }
   }
 
-  // --- CAPÍTULO 8: DELETAR TAREFA (DELETE) ---
-  async function handleDeletarTarefa(id) {
+  async function moverTarefa(id, novaColuna) {
     try {
-      setErro('');
-      await api.delete(`/tarefas/${id}`);
-      setTarefas((prev) => prev.filter((t) => t.id !== id));
+      setTarefas(tarefas.map(t => t.id === id ? { ...t, coluna: novaColuna } : t));
+      await api.put(`/tarefas/${id}`, { coluna: novaColuna });
     } catch (err) {
-      console.error(err);
-      setErro('Erro ao deletar tarefa.');
+      alert('Erro ao mover tarefa');
+      carregarTarefas();
     }
   }
 
-  // --- CAPÍTULO 8: MOVER TAREFA (PUT) ---
-  async function handleMoverTarefa(id, novaColuna) {
+  async function confirmarExclusao() {
+    if (!tarefaParaExcluir) return;
     try {
-      setErro('');
-      const tarefaAtual = tarefas.find((t) => t.id === id);
-      if (!tarefaAtual) return;
-
-      const payload = {
-        ...tarefaAtual,
-        texto: tarefaAtual.texto || tarefaAtual.titulo || 'Sem título',
-        coluna: novaColuna
-      };
-
-      const resposta = await api.put(`/tarefas/${id}`, payload);
-
-      setTarefas((prev) =>
-        prev.map((t) => (t.id === id ? (resposta.data || { ...tarefaAtual, ...payload }) : t))
-      );
+      await api.delete(`/tarefas/${tarefaParaExcluir.id}`);
+      setTarefas(tarefas.filter(t => t.id !== tarefaParaExcluir.id));
+      setTarefaParaExcluir(null);
     } catch (err) {
-      console.error(err);
-      const msg = err.response?.data?.erros?.join(', ') || err.response?.data?.erro || 'Erro ao mover tarefa.';
-      setErro(`Não foi possível mover: ${msg}`);
+      alert('Erro ao excluir tarefa');
     }
   }
 
-  // Formatação legível da coluna
-  const formatarNomeColuna = (col) => {
-    if (col === 'afazer') return 'A Fazer';
-    if (col === 'andamento') return 'Em Andamento';
-    if (col === 'concluido') return 'Concluído';
-    return col || 'A Fazer';
-  };
+  // Drag and Drop
+  function handleDragStart(e, id) {
+    setCardArrastadoId(id);
+    e.dataTransfer.setData('text/plain', id);
+  }
 
-  // Cores de destaque para prioridade
-  const getCorPrioridade = (p) => {
-    switch (p) {
-      case 'alta': return { bg: '#f8717122', cor: '#f87171', texto: 'Alta' };
-      case 'media': return { bg: '#fba94c22', cor: '#fba94c', texto: 'Média' };
-      case 'baixa': return { bg: '#00b37e22', cor: '#00b37e', texto: 'Baixa' };
-      default: return { bg: '#323238', cor: '#8d8d99', texto: 'Normal' };
+  function handleDragOver(e, coluna) {
+    e.preventDefault();
+    if (colunaSobrevoada !== coluna) setColunaSobrevoada(coluna);
+  }
+
+  function handleDrop(e, novaColuna) {
+    e.preventDefault();
+    const id = e.dataTransfer.getData('text/plain') || cardArrastadoId;
+    if (id) {
+      moverTarefa(Number(id) || id, novaColuna);
     }
-  };
+    setCardArrastadoId(null);
+    setColunaSobrevoada(null);
+  }
+
+  const total = tarefas.length;
+  const pendentes = tarefas.filter(t => t.coluna !== 'CONCLUÍDO').length;
+  const concluidas = tarefas.filter(t => t.coluna === 'CONCLUÍDO').length;
+  const colunas = ['A FAZER', 'EM ANDAMENTO', 'CONCLUÍDO'];
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#121214' }}>
-      {/* Componente Sidebar na lateral esquerda */}
-      <Sidebar />
+    <div className="kanban-page">
+      <header className="kanban-header">
+        <div>
+          <h1>TaskFlow</h1>
+          <p>Gerencie suas tarefas com facilidade</p>
+        </div>
+        <div className="contadores">
+          <span className="contador-total">{total} {total === 1 ? 'tarefa' : 'tarefas'}</span>
+          <span className="contador-pendente">{pendentes} pendentes</span>
+          <span className="contador-concluida">{concluidas} concluídas</span>
+        </div>
+      </header>
 
-      {/* Área Principal do Quadro Kanban */}
-      <main style={{ flex: 1, padding: '30px', color: '#fff', overflowY: 'auto' }}>
-        <h1 style={{ color: '#00b37e', marginBottom: '20px' }}>Quadro Kanban</h1>
+      {erro && <div className="erro-alerta">{erro}</div>}
+      {carregando && <p className="loading-texto">Carregando quadro...</p>}
 
-        {erro && (
-          <div style={{ padding: '10px', backgroundColor: '#f8717122', border: '1px solid #f87171', color: '#f87171', borderRadius: '6px', marginBottom: '20px' }}>
-            {erro}
-          </div>
-        )}
+      <div className="kanban-colunas">
+        {colunas.map((coluna) => {
+          const tarefasDaColuna = tarefas.filter(t => t.coluna === coluna);
+          const isOver = colunaSobrevoada === coluna;
 
-        {/* Formulário para Adicionar Tarefa com CEP e Prioridade */}
-        <form onSubmit={handleCriarTarefa} style={{ backgroundColor: '#202024', padding: '20px', borderRadius: '8px', border: '1px solid #323238', marginBottom: '30px' }}>
-          <h2 style={{ fontSize: '18px', color: '#e1e1e6', marginBottom: '15px' }}>Nova Tarefa</h2>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            {/* Campo Título/Texto */}
-            <div>
-              <label htmlFor="novaTarefaTexto" style={{ display: 'block', marginBottom: '5px', fontSize: '14px', color: '#c4c4cc' }}>
-                Descrição da Tarefa *
-              </label>
-              <input
-                id="novaTarefaTexto"
-                name="novaTarefaTexto"
-                type="text"
-                placeholder="Ex: Refatorar rotas da API..."
-                value={novaTarefaTexto}
-                onChange={(e) => setNovaTarefaTexto(e.target.value)}
-                style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #323238', backgroundColor: '#121214', color: '#fff', outline: 'none' }}
-              />
-            </div>
-
-            {/* Linha dupla: CEP e Prioridade */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-              {/* Campo CEP */}
-              <div>
-                <label htmlFor="cep" style={{ display: 'block', marginBottom: '5px', fontSize: '14px', color: '#c4c4cc' }}>
-                  CEP da Localidade
-                </label>
-                <input
-                  id="cep"
-                  name="cep"
-                  type="text"
-                  maxLength="8"
-                  placeholder="Apenas números (Ex: 01001000)"
-                  value={cep}
-                  onChange={handleCepChange}
-                  style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #323238', backgroundColor: '#121214', color: '#fff', outline: 'none' }}
-                />
-                {buscandoCep && <span style={{ fontSize: '12px', color: '#8d8d99' }}>Buscando endereço...</span>}
-                {endereco && <span style={{ fontSize: '12px', color: '#00b37e', display: 'block', marginTop: '4px' }}>{endereco}</span>}
-              </div>
-
-              {/* Seletor de Prioridade */}
-              <div>
-                <label htmlFor="prioridade" style={{ display: 'block', marginBottom: '5px', fontSize: '14px', color: '#c4c4cc' }}>
-                  Prioridade
-                </label>
-                <select
-                  id="prioridade"
-                  name="prioridade"
-                  value={prioridade}
-                  onChange={(e) => setPrioridade(e.target.value)}
-                  style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #323238', backgroundColor: '#121214', color: '#fff', outline: 'none' }}
-                >
-                  <option value="baixa">Baixa</option>
-                  <option value="media">Média</option>
-                  <option value="alta">Alta</option>
-                </select>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              style={{
-                alignSelf: 'flex-start',
-                padding: '12px 24px',
-                backgroundColor: '#00b37e',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '6px',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                marginTop: '10px'
-              }}
+          return (
+            <div
+              key={coluna}
+              className={`coluna ${isOver ? 'coluna-drop-hover' : ''}`}
+              onDragOver={(e) => handleDragOver(e, coluna)}
+              onDragLeave={() => setColunaSobrevoada(null)}
+              onDrop={(e) => handleDrop(e, coluna)}
             >
-              Adicionar Tarefa
-            </button>
-          </div>
-        </form>
+              <div className="coluna-topo">
+                <div className="coluna-titulo">
+                  <h3>{coluna}</h3>
+                  <span className="badge-count">{tarefasDaColuna.length}</span>
+                </div>
+                <button onClick={() => abrirNovo(coluna)} className="btn-add-mini" title={`Adicionar em ${coluna}`}>
+                  <Plus size={15} />
+                </button>
+              </div>
 
-        {/* Lista de Cards de Tarefas */}
-        {carregando ? (
-          <p style={{ color: '#8d8d99' }}>Carregando tarefas...</p>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px' }}>
-            {tarefas.length === 0 ? (
-              <p style={{ color: '#8d8d99' }}>Nenhuma tarefa encontrada.</p>
-            ) : (
-              tarefas.map((tarefa) => {
-                const badgePrioridade = getCorPrioridade(tarefa.prioridade);
+              <div className="lista-cards">
+                {tarefasDaColuna.map((tarefa) => {
+                  const local = tarefa.cidadeUf || (tarefa.endereco?.cidade ? `${tarefa.endereco.cidade} - ${tarefa.endereco.uf}` : '');
+                  const arrastandoEste = cardArrastadoId === tarefa.id;
 
-                return (
-                  <div
-                    key={tarefa.id}
-                    style={{
-                      backgroundColor: '#202024',
-                      border: '1px solid #323238',
-                      borderRadius: '8px',
-                      padding: '16px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      gap: '12px'
-                    }}
-                  >
-                    <div>
-                      {/* Tags de Estado e Prioridade */}
-                      <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-                        <span style={{ fontSize: '11px', color: '#8d8d99', backgroundColor: '#121214', padding: '3px 8px', borderRadius: '4px' }}>
-                          {formatarNomeColuna(tarefa.coluna)}
-                        </span>
-                        <span style={{ fontSize: '11px', color: badgePrioridade.cor, backgroundColor: badgePrioridade.bg, padding: '3px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
-                          {badgePrioridade.texto}
+                  return (
+                    <div
+                      key={tarefa.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, tarefa.id)}
+                      onDragEnd={() => {
+                        setCardArrastadoId(null);
+                        setColunaSobrevoada(null);
+                      }}
+                      className={`card-tarefa ${tarefa.prioridade?.toLowerCase() || 'media'} ${arrastandoEste ? 'arrastando' : ''}`}
+                    >
+                      <div className="card-cabecalho">
+                        <div className="card-info-principal">
+                          <span className="drag-handle" title="Arraste para mover de coluna">
+                            <GripVertical size={14} />
+                          </span>
+                          <div>
+                            <h4>{tarefa.titulo}</h4>
+                            {tarefa.descricao && <p className="card-desc">{tarefa.descricao}</p>}
+                            {local && (
+                              <div className="localizacao">
+                                <MapPin size={12} />
+                                <span>{local}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <span className={`badge-prioridade ${tarefa.prioridade?.toLowerCase() || 'media'}`}>
+                          {tarefa.prioridade}
                         </span>
                       </div>
 
-                      {/* Descrição */}
-                      <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', color: '#e1e1e6' }}>
-                        {tarefa.texto || tarefa.titulo}
-                      </h3>
-
-                      {/* Informações de Endereço/CEP se houver */}
-                      {(tarefa.endereco || tarefa.cep) && (
-                        <p style={{ fontSize: '12px', color: '#8d8d99', margin: '6px 0 0 0' }}>
-                          📍 {tarefa.endereco || `CEP: ${tarefa.cep}`}
-                        </p>
-                      )}
+                      <div className="card-rodape">
+                        <div className="acoes-card">
+                          {coluna === 'EM ANDAMENTO' && (
+                            <button onClick={() => moverTarefa(tarefa.id, 'A FAZER')} title="Voltar para A Fazer">
+                              <ArrowLeft size={14} />
+                            </button>
+                          )}
+                          {coluna === 'CONCLUÍDO' && (
+                            <button onClick={() => moverTarefa(tarefa.id, 'EM ANDAMENTO')} title="Voltar para Em Andamento">
+                              <ArrowLeft size={14} />
+                            </button>
+                          )}
+                          {coluna === 'A FAZER' && (
+                            <button onClick={() => moverTarefa(tarefa.id, 'EM ANDAMENTO')} title="Avançar para Em Andamento">
+                              <ArrowRight size={14} />
+                            </button>
+                          )}
+                          {coluna === 'EM ANDAMENTO' && (
+                            <button onClick={() => moverTarefa(tarefa.id, 'CONCLUÍDO')} title="Concluir tarefa">
+                              <ArrowRight size={14} />
+                            </button>
+                          )}
+                          <button onClick={() => abrirEdicao(tarefa)} title="Editar">
+                            <Pencil size={13} />
+                          </button>
+                          <button onClick={() => setTarefaParaExcluir(tarefa)} className="btn-excluir" title="Excluir">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
                     </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
-                    {/* Botões de Ação */}
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                      {tarefa.coluna !== 'concluido' && (
-                        <button
-                          onClick={() => handleMoverTarefa(tarefa.id, 'concluido')}
-                          style={{ background: 'none', border: '1px solid #00b37e', color: '#00b37e', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
-                        >
-                          Concluir
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleDeletarTarefa(tarefa.id)}
-                        style={{ background: 'none', border: '1px solid #f87171', color: '#f87171', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
-                      >
-                        Excluir
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
+      {/* Modal de Criação / Edição */}
+      {modalAberto && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header-box">
+              <h3>{tarefaEmEdicao ? 'Editar tarefa' : 'Nova tarefa'}</h3>
+              <p>Defina a prioridade, a coluna e o endereço automático pelo CEP.</p>
+            </div>
+
+            <form onSubmit={salvarTarefa}>
+              <div className="form-group">
+                <label>Título</label>
+                <input
+                  type="text"
+                  value={titulo}
+                  onChange={(e) => setTitulo(e.target.value)}
+                  placeholder="Ex.: Revisar relatório"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Descrição</label>
+                <textarea
+                  value={descricao}
+                  onChange={(e) => setDescricao(e.target.value)}
+                  placeholder="Detalhes da tarefa"
+                  rows={2}
+                />
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Prioridade</label>
+                  <select value={prioridade} onChange={(e) => setPrioridade(e.target.value)}>
+                    <option value="BAIXA">🟢 Baixa</option>
+                    <option value="MEDIA">🟡 Média</option>
+                    <option value="ALTA">🔴 Alta</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Coluna</label>
+                  <select value={colunaDestino} onChange={(e) => setColunaDestino(e.target.value)}>
+                    <option value="A FAZER">A Fazer</option>
+                    <option value="EM ANDAMENTO">Em Andamento</option>
+                    <option value="CONCLUÍDO">Concluído</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* CEP COM BLOQUEIO DE LETRAS */}
+              <div className="form-group">
+                <label><MapPin size={13} /> CEP (somente números)</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={cep}
+                  onChange={handleCepChange}
+                  placeholder="00000-000"
+                  maxLength={9}
+                />
+                <span className="form-subtexto">
+                  {buscandoCep ? 'Consultando ViaCEP...' : 'Apenas dígitos numéricos. Cidade, estado, bairro e rua são preenchidos.'}
+                </span>
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Cidade</label>
+                  <input type="text" value={cidade} onChange={(e) => setCidade(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>UF</label>
+                  <input type="text" value={uf} onChange={(e) => setUf(e.target.value)} maxLength={2} />
+                </div>
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Bairro</label>
+                  <input type="text" value={bairro} onChange={(e) => setBairro(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Rua</label>
+                  <input type="text" value={rua} onChange={(e) => setRua(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="modal-acoes">
+                <button type="button" onClick={() => setModalAberto(false)} className="btn-cancelar">Cancelar</button>
+                <button type="submit" className="btn-salvar">
+                  {tarefaEmEdicao ? 'Salvar alterações' : 'Criar tarefa'}
+                </button>
+              </div>
+            </form>
           </div>
-        )}
-      </main>
+        </div>
+      )}
+
+      {/* Modal de Exclusão */}
+      {tarefaParaExcluir && (
+        <div className="modal-overlay">
+          <div className="modal-content modal-excluir-box">
+            <div className="modal-header-box">
+              <h3>Excluir "{tarefaParaExcluir.titulo}"?</h3>
+              <p>Esta ação não pode ser desfeita e removerá a tarefa do quadro.</p>
+            </div>
+            <div className="modal-acoes">
+              <button onClick={() => setTarefaParaExcluir(null)} className="btn-cancelar">Cancelar</button>
+              <button onClick={confirmarExclusao} className="btn-confirmar-exclusao">Excluir tarefa</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
