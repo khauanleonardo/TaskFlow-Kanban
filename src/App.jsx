@@ -15,7 +15,7 @@ export default function App() {
     <div className="app-container">
       {token && <Sidebar aberta={sidebarAberta} setAberta={setSidebarAberta} />}
       <main 
-        className="main-content" 
+        className={token ? "main-content" : "main-content-login"} 
         style={{ 
           marginLeft: token ? (sidebarAberta ? '260px' : '76px') : '0',
           transition: 'margin-left 0.28s cubic-bezier(0.4, 0, 0.2, 1)'

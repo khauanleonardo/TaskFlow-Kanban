@@ -1,6 +1,46 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
-import { Plus, ArrowLeft, ArrowRight, Trash2, Pencil, MapPin, GripVertical } from 'lucide-react';
+import { 
+  Plus, 
+  ArrowLeft, 
+  ArrowRight, 
+  Trash2, 
+  Pencil, 
+  MapPin, 
+  GripVertical,
+  ListTodo,
+  Clock,
+  CheckCircle2
+} from 'lucide-react';
+
+// Configuração visual rica para cada coluna
+const CONFIG_COLUNAS = [
+  {
+    status: 'A FAZER',
+    titulo: 'A Fazer',
+    subtitulo: 'Aguardando início',
+    tag: 'Backlog',
+    classeCss: 'afazer',
+    icone: ListTodo
+  },
+  {
+    status: 'EM ANDAMENTO',
+    titulo: 'Em Andamento',
+    subtitulo: 'Em execução',
+    tag: 'Em foco',
+    classeCss: 'andamento',
+    pulsar: true,
+    icone: Clock
+  },
+  {
+    status: 'CONCLUÍDO',
+    titulo: 'Concluído',
+    subtitulo: 'Finalizadas',
+    tag: 'Entregue',
+    classeCss: 'concluido',
+    icone: CheckCircle2
+  }
+];
 
 export default function Kanban() {
   const [tarefas, setTarefas] = useState([]);
@@ -47,17 +87,15 @@ export default function Kanban() {
 
   // Permite APENAS números de 0 a 9 e insere o hífen automaticamente
   function handleCepChange(e) {
-    const apenasNumeros = e.target.value.replace(/\D/g, ''); // Remove letras e símbolos
+    const apenasNumeros = e.target.value.replace(/\D/g, '');
     if (apenasNumeros.length > 8) return;
 
-    // Máscara 00000-000
     let formatado = apenasNumeros;
     if (apenasNumeros.length > 5) {
       formatado = `${apenasNumeros.slice(0, 5)}-${apenasNumeros.slice(5)}`;
     }
     setCep(formatado);
 
-    // Consulta automática ao atingir 8 dígitos
     if (apenasNumeros.length === 8) {
       consultarViaCep(apenasNumeros);
     }
@@ -158,7 +196,7 @@ export default function Kanban() {
   // Drag and Drop
   function handleDragStart(e, id) {
     setCardArrastadoId(id);
-    e.dataTransfer.setData('text/plain', id);
+    e.dataTransfer.setData('text/plain', String(id));
   }
 
   function handleDragOver(e, coluna) {
@@ -179,7 +217,6 @@ export default function Kanban() {
   const total = tarefas.length;
   const pendentes = tarefas.filter(t => t.coluna !== 'CONCLUÍDO').length;
   const concluidas = tarefas.filter(t => t.coluna === 'CONCLUÍDO').length;
-  const colunas = ['A FAZER', 'EM ANDAMENTO', 'CONCLUÍDO'];
 
   return (
     <div className="kanban-page">
@@ -198,29 +235,70 @@ export default function Kanban() {
       {erro && <div className="erro-alerta">{erro}</div>}
       {carregando && <p className="loading-texto">Carregando quadro...</p>}
 
+      {/* Grade de Colunas */}
       <div className="kanban-colunas">
-        {colunas.map((coluna) => {
-          const tarefasDaColuna = tarefas.filter(t => t.coluna === coluna);
-          const isOver = colunaSobrevoada === coluna;
+        {CONFIG_COLUNAS.map((coluna) => {
+          const tarefasDaColuna = tarefas.filter(t => t.coluna === coluna.status);
+          const isOver = colunaSobrevoada === coluna.status;
+          const IconeColuna = coluna.icone;
+          const porcentagem = total > 0 
+            ? Math.round((tarefasDaColuna.length / total) * 100) 
+            : 0;
 
           return (
             <div
-              key={coluna}
-              className={`coluna ${isOver ? 'coluna-drop-hover' : ''}`}
-              onDragOver={(e) => handleDragOver(e, coluna)}
+              key={coluna.status}
+              className={`coluna coluna-${coluna.classeCss} ${isOver ? 'coluna-drop-hover' : ''}`}
+              onDragOver={(e) => handleDragOver(e, coluna.status)}
               onDragLeave={() => setColunaSobrevoada(null)}
-              onDrop={(e) => handleDrop(e, coluna)}
+              onDrop={(e) => handleDrop(e, coluna.status)}
             >
-              <div className="coluna-topo">
-                <div className="coluna-titulo">
-                  <h3>{coluna}</h3>
-                  <span className="badge-count">{tarefasDaColuna.length}</span>
+              {/* Topo Enriquecido da Coluna */}
+              <div className="coluna-cabecalho-detalhado">
+                <div className="coluna-linha-principal">
+                  <div className="coluna-info-grupo">
+                    <div className="coluna-icone-caixa">
+                      <IconeColuna size={17} />
+                    </div>
+                    <div className="coluna-titulos-box">
+                      <h3>
+                        {coluna.titulo}
+                        <span className="badge-count">{tarefasDaColuna.length}</span>
+                      </h3>
+                      <span className="coluna-subtitulo">{coluna.subtitulo}</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <span className={`coluna-badge-status ${coluna.classeCss}`}>
+                      {coluna.pulsar && <span className="ponto-pulso"></span>}
+                      {coluna.tag}
+                    </span>
+
+                    <button 
+                      onClick={() => abrirNovo(coluna.status)} 
+                      className="btn-add-mini" 
+                      title={`Adicionar em ${coluna.titulo}`}
+                      type="button"
+                    >
+                      <Plus size={15} />
+                    </button>
+                  </div>
                 </div>
-                <button onClick={() => abrirNovo(coluna)} className="btn-add-mini" title={`Adicionar em ${coluna}`}>
-                  <Plus size={15} />
-                </button>
+
+                {/* Barra de Progresso com porcentagem numérica ao lado */}
+                <div className="coluna-progresso-container" title={`${porcentagem}% do total de tarefas`}>
+                  <div className="coluna-progresso-trilha">
+                    <div
+                      className="coluna-progresso-barra"
+                      style={{ width: `${porcentagem}%` }}
+                    />
+                  </div>
+                  <span className="coluna-progresso-valor">{porcentagem}%</span>
+                </div>
               </div>
 
+              {/* Lista de Cards da Coluna */}
               <div className="lista-cards">
                 {tarefasDaColuna.map((tarefa) => {
                   const local = tarefa.cidadeUf || (tarefa.endereco?.cidade ? `${tarefa.endereco.cidade} - ${tarefa.endereco.uf}` : '');
@@ -253,29 +331,32 @@ export default function Kanban() {
                             )}
                           </div>
                         </div>
+
+                        {/* Badge de Prioridade com a bolinha colorida */}
                         <span className={`badge-prioridade ${tarefa.prioridade?.toLowerCase() || 'media'}`}>
+                          <span className="bolinha-prioridade" />
                           {tarefa.prioridade}
                         </span>
                       </div>
 
                       <div className="card-rodape">
                         <div className="acoes-card">
-                          {coluna === 'EM ANDAMENTO' && (
+                          {coluna.status === 'EM ANDAMENTO' && (
                             <button onClick={() => moverTarefa(tarefa.id, 'A FAZER')} title="Voltar para A Fazer">
                               <ArrowLeft size={14} />
                             </button>
                           )}
-                          {coluna === 'CONCLUÍDO' && (
+                          {coluna.status === 'CONCLUÍDO' && (
                             <button onClick={() => moverTarefa(tarefa.id, 'EM ANDAMENTO')} title="Voltar para Em Andamento">
                               <ArrowLeft size={14} />
                             </button>
                           )}
-                          {coluna === 'A FAZER' && (
+                          {coluna.status === 'A FAZER' && (
                             <button onClick={() => moverTarefa(tarefa.id, 'EM ANDAMENTO')} title="Avançar para Em Andamento">
                               <ArrowRight size={14} />
                             </button>
                           )}
-                          {coluna === 'EM ANDAMENTO' && (
+                          {coluna.status === 'EM ANDAMENTO' && (
                             <button onClick={() => moverTarefa(tarefa.id, 'CONCLUÍDO')} title="Concluir tarefa">
                               <ArrowRight size={14} />
                             </button>
@@ -291,13 +372,22 @@ export default function Kanban() {
                     </div>
                   );
                 })}
+
+                {/* Empty State quando a coluna não tem cards */}
+                {tarefasDaColuna.length === 0 && (
+                  <div className="coluna-vazia">
+                    <IconeColuna size={26} style={{ opacity: 0.3 }} />
+                    <p>Nenhuma tarefa em {coluna.titulo.toLowerCase()}</p>
+                    <span>Arraste um card ou clique no + acima</span>
+                  </div>
+                )}
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Modal de Criação / Edição */}
+      {/* Modal de Criação / Edição com labels e ids associados */}
       {modalAberto && (
         <div className="modal-overlay">
           <div className="modal-content">
@@ -308,8 +398,10 @@ export default function Kanban() {
 
             <form onSubmit={salvarTarefa}>
               <div className="form-group">
-                <label>Título</label>
+                <label htmlFor="campo-titulo">Título</label>
                 <input
+                  id="campo-titulo"
+                  name="titulo"
                   type="text"
                   value={titulo}
                   onChange={(e) => setTitulo(e.target.value)}
@@ -319,8 +411,10 @@ export default function Kanban() {
               </div>
 
               <div className="form-group">
-                <label>Descrição</label>
+                <label htmlFor="campo-descricao">Descrição</label>
                 <textarea
+                  id="campo-descricao"
+                  name="descricao"
                   value={descricao}
                   onChange={(e) => setDescricao(e.target.value)}
                   placeholder="Detalhes da tarefa"
@@ -330,8 +424,13 @@ export default function Kanban() {
 
               <div className="form-grid-2">
                 <div className="form-group">
-                  <label>Prioridade</label>
-                  <select value={prioridade} onChange={(e) => setPrioridade(e.target.value)}>
+                  <label htmlFor="campo-prioridade">Prioridade</label>
+                  <select 
+                    id="campo-prioridade" 
+                    name="prioridade" 
+                    value={prioridade} 
+                    onChange={(e) => setPrioridade(e.target.value)}
+                  >
                     <option value="BAIXA">🟢 Baixa</option>
                     <option value="MEDIA">🟡 Média</option>
                     <option value="ALTA">🔴 Alta</option>
@@ -339,8 +438,13 @@ export default function Kanban() {
                 </div>
 
                 <div className="form-group">
-                  <label>Coluna</label>
-                  <select value={colunaDestino} onChange={(e) => setColunaDestino(e.target.value)}>
+                  <label htmlFor="campo-coluna">Coluna</label>
+                  <select 
+                    id="campo-coluna" 
+                    name="coluna" 
+                    value={colunaDestino} 
+                    onChange={(e) => setColunaDestino(e.target.value)}
+                  >
                     <option value="A FAZER">A Fazer</option>
                     <option value="EM ANDAMENTO">Em Andamento</option>
                     <option value="CONCLUÍDO">Concluído</option>
@@ -348,10 +452,12 @@ export default function Kanban() {
                 </div>
               </div>
 
-              {/* CEP COM BLOQUEIO DE LETRAS */}
+              {/* CEP com máscara e bloqueio de letras */}
               <div className="form-group">
-                <label><MapPin size={13} /> CEP (somente números)</label>
+                <label htmlFor="campo-cep"><MapPin size={13} /> CEP (somente números)</label>
                 <input
+                  id="campo-cep"
+                  name="cep"
                   type="text"
                   inputMode="numeric"
                   value={cep}
@@ -366,23 +472,48 @@ export default function Kanban() {
 
               <div className="form-grid-2">
                 <div className="form-group">
-                  <label>Cidade</label>
-                  <input type="text" value={cidade} onChange={(e) => setCidade(e.target.value)} />
+                  <label htmlFor="campo-cidade">Cidade</label>
+                  <input 
+                    id="campo-cidade" 
+                    name="cidade" 
+                    type="text" 
+                    value={cidade} 
+                    onChange={(e) => setCidade(e.target.value)} 
+                  />
                 </div>
                 <div className="form-group">
-                  <label>UF</label>
-                  <input type="text" value={uf} onChange={(e) => setUf(e.target.value)} maxLength={2} />
+                  <label htmlFor="campo-uf">UF</label>
+                  <input 
+                    id="campo-uf" 
+                    name="uf" 
+                    type="text" 
+                    value={uf} 
+                    onChange={(e) => setUf(e.target.value)} 
+                    maxLength={2} 
+                  />
                 </div>
               </div>
 
               <div className="form-grid-2">
                 <div className="form-group">
-                  <label>Bairro</label>
-                  <input type="text" value={bairro} onChange={(e) => setBairro(e.target.value)} />
+                  <label htmlFor="campo-bairro">Bairro</label>
+                  <input 
+                    id="campo-bairro" 
+                    name="bairro" 
+                    type="text" 
+                    value={bairro} 
+                    onChange={(e) => setBairro(e.target.value)} 
+                  />
                 </div>
                 <div className="form-group">
-                  <label>Rua</label>
-                  <input type="text" value={rua} onChange={(e) => setRua(e.target.value)} />
+                  <label htmlFor="campo-rua">Rua</label>
+                  <input 
+                    id="campo-rua" 
+                    name="rua" 
+                    type="text" 
+                    value={rua} 
+                    onChange={(e) => setRua(e.target.value)} 
+                  />
                 </div>
               </div>
 
