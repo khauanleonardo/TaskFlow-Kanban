@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+// Na sua máquina: usa 'http://localhost:3001'.
+// Na Vercel: usa a URL definida nas configurações (VITE_API_URL).
 const api = axios.create({
-  baseURL: 'http://localhost:3001',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001',
 });
 
 // Interceptor de REQUISIÇÃO (Injeta o Token JWT)
