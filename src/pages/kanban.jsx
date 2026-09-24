@@ -68,21 +68,36 @@ export default function Kanban() {
   const [rua, setRua] = useState('');
   const [buscandoCep, setBuscandoCep] = useState(false);
 
-  useEffect(() => {
-    carregarTarefas();
-  }, []);
+   async function carregarTarefas() {
 
-  async function carregarTarefas() {
     try {
-      setCarregando(true);
-      setErro('');
+
       const resposta = await api.get('/tarefas');
-      setTarefas(resposta.data);
-    } catch (e) {
-      setErro('Erro ao carregar tarefas. Verifique se a API está ligada.');
-    } finally {
-      setCarregando(false);
+
+      // Garante que 'tarefas' seja sempre um array, evitando tela branca
+
+      if (Array.isArray(resposta.data)) {
+
+        setTarefas(resposta.data);
+
+      } else if (resposta.data && Array.isArray(resposta.data.tarefas)) {
+
+        setTarefas(resposta.data.tarefas);
+
+      } else {
+
+        setTarefas([]);
+
+      }
+
+    } catch (erro) {
+
+      console.error('Erro ao carregar tarefas:', erro);
+
+      setTarefas([]);
+
     }
+
   }
 
   // Permite APENAS números de 0 a 9 e insere o hífen automaticamente
