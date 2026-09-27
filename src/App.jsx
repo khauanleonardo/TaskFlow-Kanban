@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import Sidebar from './componentes/Sidebar';
 import RotaPrivada from './componentes/RotaPrivada';
 import Login from './pages/Login';
 import Kanban from './pages/kanban';
 import Sobre from './pages/Sobre';
+import './styles.css'; // <-- Import essencial para carregar todas as cores e colunas
 
 export default function App() {
   const { token } = useAuth();
@@ -17,14 +18,17 @@ export default function App() {
       <main 
         className={token ? "main-content" : "main-content-login"} 
         style={{ 
-          marginLeft: token ? (sidebarAberta ? '260px' : '76px') : '0',
-          transition: 'margin-left 0.28s cubic-bezier(0.4, 0, 0.2, 1)'
+          marginLeft: token ? (sidebarAberta ? '250px' : '70px') : '0',
+          transition: 'margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+          minWidth: 0,
+          width: '100%'
         }}
       >
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<RotaPrivada><Kanban /></RotaPrivada>} />
           <Route path="/sobre" element={<RotaPrivada><Sobre /></RotaPrivada>} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </div>

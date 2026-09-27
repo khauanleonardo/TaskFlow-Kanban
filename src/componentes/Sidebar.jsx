@@ -18,7 +18,7 @@ export default function Sidebar({ aberta, setAberta }) {
       <div className="sidebar-topo">
         {aberta ? (
           <div className="sidebar-cabecalho-aberto">
-            <div className="marca-logo">
+            <div className="marca-logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
               <span className="icone-workflow">
                 <Workflow size={20} />
               </span>
@@ -28,6 +28,7 @@ export default function Sidebar({ aberta, setAberta }) {
               onClick={() => setAberta(false)}
               className="btn-toggle"
               title="Recolher menu"
+              type="button"
             >
               <PanelLeftClose size={18} />
             </button>
@@ -38,6 +39,7 @@ export default function Sidebar({ aberta, setAberta }) {
               onClick={() => setAberta(true)}
               className="btn-toggle centralizado"
               title="Expandir menu"
+              type="button"
             >
               <PanelLeftOpen size={20} />
             </button>
@@ -72,13 +74,13 @@ export default function Sidebar({ aberta, setAberta }) {
               <span className="nome-usuario">Olá, {usuario?.nome ?? 'Admin'}</span>
               <span className="email-usuario">{usuario?.email ?? 'admin@taskflow.com'}</span>
             </div>
-            <button onClick={handleLogout} className="btn-sair-aberto">
+            <button onClick={handleLogout} className="btn-sair-aberto" type="button" title="Sair da conta">
               <LogOut size={16} />
               <span>Sair</span>
             </button>
           </>
         ) : (
-          <button onClick={handleLogout} className="btn-sair-icone" title="Sair da conta">
+          <button onClick={handleLogout} className="btn-sair-icone" type="button" title="Sair da conta">
             <LogOut size={18} />
           </button>
         )}

@@ -1,12 +1,18 @@
+// src/api.js
 import axios from 'axios';
 
-// Na sua máquina: usa 'http://localhost:3001'.
-// Na Vercel: usa a URL definida nas configurações (VITE_API_URL).
+// URL base automática: usa VITE_API_URL se existir, URL de produção se em build, ou localhost
+const urlBase =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD
+    ? 'https://taskflow-api-ruby.vercel.app'
+    : 'http://localhost:3001');
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001',
+  baseURL: urlBase.replace(/\/$/, '')
 });
 
-// Interceptor de REQUISIÇÃO (Injeta o Token JWT)
+// Interceptor de REQUISIÇÃO (Injeta o Bearer Token)
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -15,7 +21,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Interceptor de RESPOSTA (Captura 401 e desloga)
+// Interceptor de RESPOSTA (Captura 401 globalmente)
 api.interceptors.response.use(
   (resposta) => resposta,
   (erro) => {
