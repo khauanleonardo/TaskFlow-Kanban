@@ -1610,3 +1610,361 @@ button:active,
     grid-template-columns: 1fr;
   }
 }
+/* ==========================================================================
+   AJUSTES DE CORES: A FAZER (AZUL) & URGENTE (ROXO)
+   ========================================================================== */
+
+/* Coluna A Fazer uniformizada em Azul (#38bdf8) */
+.coluna-afazer .coluna-icone-caixa {
+  background: rgba(56, 189, 248, 0.14) !important;
+  color: #38bdf8 !important;
+}
+.coluna-badge-status.afazer {
+  background: rgba(56, 189, 248, 0.15) !important;
+  color: #38bdf8 !important;
+  border-color: rgba(56, 189, 248, 0.3) !important;
+}
+.coluna-afazer .coluna-progresso-barra { 
+  background: #38bdf8 !important; 
+}
+.coluna-afazer .coluna-progresso-valor { 
+  color: #38bdf8 !important; 
+}
+.bolinha-select.coluna-afazer {
+  background: #38bdf8 !important;
+}
+
+/* Prioridade URGENTE uniformizada em Roxo (#a855f7) */
+.bolinha-filtro.urgente,
+.bolinha-prioridade.urgente,
+.bolinha-select.urgente {
+  background: #a855f7 !important;
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.5) !important;
+}
+
+.borda-urgente {
+  border-left: 3px solid #a855f7 !important;
+}
+
+.badge-prioridade.urgente {
+  background: rgba(168, 85, 247, 0.16) !important;
+  color: #c084fc !important;
+  border: 1px solid rgba(168, 85, 247, 0.35) !important;
+}
+
+/* Bolinhas dos filtros no topo */
+.bolinha-filtro {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.bolinha-filtro.alta { background: #ef4444; }
+.bolinha-filtro.media { background: #f59e0b; }
+.bolinha-filtro.baixa { background: #10b981; }
+
+.bolinha-select.alta { background: #ef4444; }
+.bolinha-select.media { background: #f59e0b; }
+.bolinha-select.baixa { background: #10b981; }
+/* ========================================================
+   ESTILOS DINÂMICOS DA PÁGINA SOBRE
+======================================================== */
+
+.sobre-hero {
+  margin-bottom: 2.5rem;
+}
+
+.texto-destaque-gradiente {
+  background: linear-gradient(135deg, #41d686 0%, #38bdf8 50%, #a855f7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.sobre-metricas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-top: 1.8rem;
+}
+
+.sobre-metrica-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.sobre-metrica-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.metrica-numero {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.metrica-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Simulador do Ciclo de Vida */
+.simulador-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-top: 1.2rem;
+}
+
+.simulador-colunas-tabs {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 1.4rem;
+  flex-wrap: wrap;
+}
+
+.simulador-tab {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: all 0.2s ease;
+}
+
+.simulador-tab.ativa {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.bolinha-indicadora {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.simulador-card-preview {
+  background: var(--bg-surface);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1.35rem;
+  box-shadow: 0 10px 30px -15px rgba(0, 0, 0, 0.8);
+}
+
+.preview-card-cabecalho {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.8rem;
+}
+
+.badge-prioridade-demo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: 9999px;
+}
+
+.status-badge {
+  font-size: 0.78rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+
+.preview-card-titulo {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 0.4rem;
+}
+
+.preview-card-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 1.2rem;
+}
+
+.btn-avancar-demo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--color-primary);
+  color: #0b0f17;
+  border: none;
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+}
+
+.btn-avancar-demo:hover {
+  opacity: 0.9;
+  transform: translateX(2px);
+}
+
+/* Grid de Prioridades */
+.grid-prioridades-interativo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-top: 1.2rem;
+}
+
+.card-prioridade-demo {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  padding: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.card-prioridade-demo:hover,
+.card-prioridade-demo.selecionada {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.prioridade-demo-topo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+  font-size: 0.92rem;
+}
+
+.ponto-cor {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.prioridade-demo-texto {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-bottom: 0.8rem;
+}
+
+.prioridade-demo-exemplo {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.74rem;
+  color: var(--text-dim);
+  display: flex;
+  flex-direction: column;
+}
+
+.prioridade-demo-exemplo small {
+  color: var(--text-dim);
+  font-size: 0.68rem;
+}
+
+/* Abas de Arquitetura */
+.abas-container {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-top: 1.2rem;
+}
+
+.abas-botoes {
+  display: flex;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid var(--border-card);
+  overflow-x: auto;
+}
+
+.aba-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 0.85rem 1.2rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.aba-btn:hover {
+  color: #fff;
+}
+
+.aba-btn.ativo {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+  background: rgba(65, 214, 134, 0.05);
+}
+
+.aba-conteudo {
+  padding: 1.6rem;
+}
+
+.painel-aba-detalhes h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 0.4rem;
+}
+
+.painel-aba-detalhes p {
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
+.lista-pontos-tecnicos {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.lista-pontos-tecnicos li {
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  padding-left: 1.2rem;
+  position: relative;
+  line-height: 1.45;
+}
+
+.lista-pontos-tecnicos li::before {
+  content: '▸';
+  color: var(--color-primary);
+  position: absolute;
+  left: 0;
+  font-size: 0.95rem;
+}

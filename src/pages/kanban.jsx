@@ -22,6 +22,16 @@ function paraNumero(valor) {
   return valor !== '' && valor !== null && valor !== undefined ? Number(valor) : null;
 }
 
+function obterMensagensSeguras(e) {
+  if (typeof mensagensDeErro === 'function') {
+    return mensagensDeErro(e);
+  }
+  const dados = e?.response?.data?.erro;
+  if (dados?.detalhes && Array.isArray(dados.detalhes)) return dados.detalhes;
+  if (dados?.mensagem) return [dados.mensagem];
+  return ['Ocorreu um erro na requisição.'];
+}
+
 const CONFIG_COLUNAS = [
   {
     status: 'afazer',
@@ -56,7 +66,7 @@ const CONFIG_COLUNAS = [
 export default function Kanban() {
   const { usuario } = useAuth();
 
-  // Dados vindos da API (Passo 4 - Slide 9)
+  // Dados vindos da API
   const [tarefas, setTarefas] = useState([]);
   const [listaPrioridades, setListaPrioridades] = useState([]);
   const [listaUsuarios, setListaUsuarios] = useState([]);
@@ -66,7 +76,7 @@ export default function Kanban() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
 
-  // Filtros de busca e prioridade no topo (Layout das fotos)
+  // Filtros de busca e prioridade no topo
   const [busca, setBusca] = useState('');
   const [filtroPrioridade, setFiltroPrioridade] = useState('TODAS');
 
@@ -79,7 +89,7 @@ export default function Kanban() {
   const [tarefaEmEdicao, setTarefaEmEdicao] = useState(null);
   const [tarefaParaExcluir, setTarefaParaExcluir] = useState(null);
 
-  // Formulário do Modal
+  // Formulário do Modal (Campos oficiais da API sem CEP)
   const [texto, setTexto] = useState('');
   const [descricao, setDescricao] = useState('');
   const [idPrioridade, setIdPrioridade] = useState(2); // 2 = Médio
@@ -110,7 +120,7 @@ export default function Kanban() {
       setListaUsuarios(respUsuarios.data || []);
       setListaProjetos(respProjetos.data || []);
     } catch (e) {
-      setErro(mensagensDeErro(e).join(' '));
+      setErro(obterMensagensSeguras(e).join(' '));
     } finally {
       setCarregando(false);
     }
@@ -168,7 +178,7 @@ export default function Kanban() {
       });
       setModalAberto(false);
     } catch (err) {
-      setErrosModal(mensagensDeErro(err));
+      setErrosModal(obterMensagensSeguras(err));
     } finally {
       setSalvando(false);
     }
@@ -193,7 +203,7 @@ export default function Kanban() {
       });
       setTarefas((prev) => prev.map((t) => (t.id === id ? resposta.data : t)));
     } catch (e) {
-      alert(mensagensDeErro(e).join('\n'));
+      alert(obterMensagensSeguras(e).join('\n'));
       carregarDados();
     }
   }
@@ -205,7 +215,7 @@ export default function Kanban() {
       setTarefas((prev) => prev.filter((t) => t.id !== tarefaParaExcluir.id));
       setTarefaParaExcluir(null);
     } catch (e) {
-      alert(mensagensDeErro(e).join('\n'));
+      alert(obterMensagensSeguras(e).join('\n'));
     }
   }
 
@@ -240,13 +250,13 @@ export default function Kanban() {
     const mapaId = { 1: 'baixa', 2: 'media', 3: 'alta', 4: 'urgente' };
     if (t.idprioridade && mapaId[t.idprioridade]) return mapaId[t.idprioridade];
     const textoP = String(t.prioridade || '').toLowerCase();
-    if (textoP.includes('baix')) return 'baixa';
-    if (textoP.includes('alt')) return 'alta';
     if (textoP.includes('urg')) return 'urgente';
+    if (textoP.includes('alt')) return 'alta';
+    if (textoP.includes('baix')) return 'baixa';
     return 'media';
   }
 
-  // Estatísticas e contadores gerais
+  // Contadores gerais
   const total = tarefas.length;
   const concluidas = tarefas.filter((t) => {
     const col = String(t.coluna || t.status || '').toLowerCase();
@@ -255,13 +265,13 @@ export default function Kanban() {
   const pendentes = total - concluidas;
   const sprintPorcentagem = total > 0 ? Math.round((concluidas / total) * 100) : 0;
 
-  // Contadores por prioridade para os filtros
+  // Contadores por prioridade
   const contagemAlta = tarefas.filter((t) => obterClassePrioridade(t) === 'alta').length;
   const contagemMedia = tarefas.filter((t) => obterClassePrioridade(t) === 'media').length;
   const contagemBaixa = tarefas.filter((t) => obterClassePrioridade(t) === 'baixa').length;
   const contagemUrgente = tarefas.filter((t) => obterClassePrioridade(t) === 'urgente').length;
 
-  // Filtragem das tarefas exibidas
+  // Filtragem
   const tarefasFiltradas = tarefas.filter((t) => {
     const termo = busca.toLowerCase().trim();
     const textoTarefa = String(t.texto || t.titulo || '').toLowerCase();
@@ -281,7 +291,7 @@ export default function Kanban() {
 
   return (
     <div className="kanban-page">
-      {/* Cabeçalho com Título e Badges da foto */}
+      {/* Cabeçalho com Título e Badges */}
       <header className="kanban-header">
         <div>
           <h1>TaskFlow</h1>
@@ -300,7 +310,7 @@ export default function Kanban() {
         </div>
       </header>
 
-      {/* Barra de Sprint da foto */}
+      {/* Barra de Sprint */}
       <div className="sprint-container">
         <div className="sprint-esquerda">
           <span className="sprint-icone"><Activity size={16} /></span>
@@ -314,7 +324,7 @@ export default function Kanban() {
         </div>
       </div>
 
-      {/* Barra de Pesquisa e Filtros de Prioridade da foto */}
+      {/* Barra de Pesquisa e Filtros de Prioridade */}
       <div className="controles-barra">
         <div className="campo-pesquisa">
           <Search size={16} className="icone-lupa" />
@@ -339,6 +349,13 @@ export default function Kanban() {
           </button>
           <button
             type="button"
+            className={`btn-chip ${filtroPrioridade === 'URGENTE' ? 'ativo' : ''}`}
+            onClick={() => setFiltroPrioridade('URGENTE')}
+          >
+            <span className="bolinha-filtro urgente"></span> Urgente <span className="chip-badge">{contagemUrgente}</span>
+          </button>
+          <button
+            type="button"
             className={`btn-chip ${filtroPrioridade === 'ALTA' ? 'ativo' : ''}`}
             onClick={() => setFiltroPrioridade('ALTA')}
           >
@@ -358,15 +375,6 @@ export default function Kanban() {
           >
             <span className="bolinha-filtro baixa"></span> Baixa <span className="chip-badge">{contagemBaixa}</span>
           </button>
-          {contagemUrgente > 0 && (
-            <button
-              type="button"
-              className={`btn-chip ${filtroPrioridade === 'URGENTE' ? 'ativo' : ''}`}
-              onClick={() => setFiltroPrioridade('URGENTE')}
-            >
-              <span className="bolinha-filtro urgente"></span> Urgente <span className="chip-badge">{contagemUrgente}</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -430,7 +438,7 @@ export default function Kanban() {
                 </div>
               </div>
 
-              {/* Lista de Cards com borda esquerda colorida */}
+              {/* Lista de Cards */}
               <div className="lista-cards">
                 {tarefasDaColuna.map((tarefa) => {
                   const arrastandoEste = cardArrastadoId === tarefa.id;
@@ -531,7 +539,7 @@ export default function Kanban() {
         })}
       </div>
 
-      {/* Modal Rico com bolinhas coloridas, selects e coluna destino */}
+      {/* Modal de Nova Tarefa / Edição */}
       {modalAberto && (
         <div className="modal-overlay">
           <div className="modal-content">
@@ -542,14 +550,15 @@ export default function Kanban() {
 
             <form onSubmit={handleSalvar}>
               <div className="form-group">
-                <label htmlFor="tarefa-texto">Título</label>
+                <label htmlFor="tarefa-texto">Título da Tarefa</label>
                 <input
                   id="tarefa-texto"
                   name="texto"
                   type="text"
                   value={texto}
                   onChange={(e) => setTexto(e.target.value)}
-                  placeholder="Ex.: Revisar relatório"
+                  placeholder="Ex.: Desenvolver autenticação JWT"
+                  required
                 />
               </div>
 
@@ -565,7 +574,7 @@ export default function Kanban() {
                 />
               </div>
 
-              {/* Linha dupla: Prioridade com Bolinha e Coluna Destino */}
+              {/* Linha dupla: Prioridade e Coluna */}
               <div className="form-linha-dupla">
                 <div className="form-group">
                   <label htmlFor="tarefa-prioridade">Prioridade</label>
@@ -649,7 +658,7 @@ export default function Kanban() {
                 </div>
               </div>
 
-              {/* Lista de Erros do Modal (Passo 11 - Slide 18) */}
+              {/* Erros da API */}
               {errosModal.length > 0 && (
                 <ul className="modal-erros">
                   {errosModal.map((msg, i) => (
