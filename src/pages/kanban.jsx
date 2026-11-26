@@ -1,4 +1,4 @@
-﻿// src/pages/kanban.jsx
+// src/pages/kanban.jsx
 // Quadro Kanban moderno, com drag-and-drop, filtros avançados, avatares individuais e integração total com a API
 
 import React, { useState, useEffect } from 'react';
@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import Avatar from '../componentes/Avatar';
 import ModalDetalhesTarefa from '../componentes/ModalDetalhesTarefa';
+import ModalTarefa from '../componentes/ModalTarefa';
 import { MEMBROS_EQUIPE_PADRAO } from '../utils/funcionarios';
 
 function paraNumero(valor) {
@@ -97,15 +98,8 @@ export default function Kanban() {
   const [tarefaParaExcluir, setTarefaParaExcluir] = useState(null);
   const [tarefaSelecionadaDetalhes, setTarefaSelecionadaDetalhes] = useState(null);
 
-  // Campos do Formulário
-  const [texto, setTexto] = useState('');
-  const [descricao, setDescricao] = useState('');
+  // Coluna sugerida para o modal de criação
   const [colunaDestino, setColunaDestino] = useState('afazer');
-  const [idPrioridade, setIdPrioridade] = useState('');
-  const [idUsuario, setIdUsuario] = useState('');
-  const [idProjeto, setIdProjeto] = useState('');
-  const [errosModal, setErrosModal] = useState([]);
-  const [salvando, setSalvando] = useState(false);
 
   // Drag and Drop
   const [arrastandoId, setArrastandoId] = useState(null);
@@ -131,7 +125,8 @@ export default function Kanban() {
         const dados = Array.isArray(resT.value.data) ? resT.value.data : [];
         setTarefas(dados);
       } else {
-        setErro('Não foi possível carregar as tarefas da API.');
+        console.error(resT.reason);
+        setErro('Erro ao carregar tarefas. Verifique a conexao.');
       }
 
       if (resPr.status === 'fulfilled') {
@@ -147,7 +142,8 @@ export default function Kanban() {
         setListaProjetos(Array.isArray(resPj.value.data) ? resPj.value.data : []);
       }
     } catch (e) {
-      setErro('Falha de conexão com a API.');
+      console.error(e);
+      setErro('Erro ao carregar tarefas. Verifique a conexao.');
     } finally {
       setCarregando(false);
     }
@@ -181,13 +177,7 @@ export default function Kanban() {
   // Abertura do Modal para Criação
   function abrirModalCriacao(colunaSugerida = 'afazer') {
     setTarefaEmEdicao(null);
-    setTexto('');
-    setDescricao('');
     setColunaDestino(colunaSugerida);
-    setIdPrioridade(listaPrioridades[0]?.id || 2);
-    setIdUsuario(usuario?.id || listaUsuarios[0]?.id || '');
-    setIdProjeto(listaProjetos[0]?.id || '');
-    setErrosModal([]);
     setModalAberto(true);
   }
 
@@ -195,53 +185,29 @@ export default function Kanban() {
   function abrirModalEdicao(tarefa, e) {
     if (e) e.stopPropagation();
     setTarefaEmEdicao(tarefa);
-    setTexto(tarefa.texto || tarefa.titulo || '');
-    setDescricao(tarefa.descricao || '');
     setColunaDestino(normalizarColuna(tarefa.coluna));
-    setIdPrioridade(tarefa.idprioridade || listaPrioridades[0]?.id || 2);
-    setIdUsuario(tarefa.usuario_id || usuario?.id || '');
-    setIdProjeto(tarefa.projeto_id || listaProjetos[0]?.id || '');
-    setErrosModal([]);
     setModalAberto(true);
   }
 
-  // Submissão do Formulário de Criação/Edição
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setErrosModal([]);
+  function fecharModal() {
+    setModalAberto(false);
+    setTarefaEmEdicao(null);
+  }
 
-    if (!texto.trim()) {
-      setErrosModal(['O título da tarefa é obrigatório.']);
-      return;
-    }
-
-    const payload = {
-      texto: texto.trim(),
-      descricao: descricao.trim() || null,
-      coluna: colunaDestino,
-      idprioridade: paraNumero(idPrioridade),
-      usuario_id: paraNumero(idUsuario) || (usuario?.id ? Number(usuario.id) : 1),
-      projeto_id: paraNumero(idProjeto) || (listaProjetos[0]?.id ? Number(listaProjetos[0].id) : 1)
-    };
-
-    setSalvando(true);
-    try {
-      if (tarefaEmEdicao) {
-        const resp = await api.put(`/tarefas/${tarefaEmEdicao.id}`, payload);
-        const atualizada = resp.data || { ...tarefaEmEdicao, ...payload };
-        setTarefas(tarefas.map(t => t.id === tarefaEmEdicao.id ? atualizada : t));
-      } else {
-        const resp = await api.post('/tarefas', payload);
-        const criada = resp.data || { ...payload, id: Date.now() };
-        setTarefas([...tarefas, criada]);
-      }
-      setModalAberto(false);
-    } catch (err) {
-      setErrosModal(obterMensagensSeguras(err));
-    } finally {
-      setSalvando(false);
+  // Chamado pelo ModalTarefa. Se a API recusar, o erro volta para o modal (catch dele)
+  async function salvarTarefa(dados) {
+    const { id, ...payload } = dados;
+    if (id) {
+      const resp = await api.put(`/tarefas/${id}`, payload);
+      const atualizada = resp?.data || { ...tarefaEmEdicao, ...payload };
+      setTarefas((lista) => lista.map((t) => (t.id === id ? atualizada : t)));
+    } else {
+      const resp = await api.post('/tarefas', dados);
+      const criada = resp?.data || { ...payload, id: Date.now() };
+      setTarefas((lista) => [...lista, criada]);
     }
   }
+
 
   // Exclusão de Tarefa
   async function confirmarExclusao() {
@@ -414,6 +380,10 @@ export default function Kanban() {
         </div>
       </div>
 
+      {carregando && (
+        <p className="kanban-carregando">Carregando tarefas...</p>
+      )}
+
       {erro && (
         <div className="alerta-erro-kanban">
           <AlertCircle size={18} />
@@ -459,7 +429,7 @@ export default function Kanban() {
                     type="button"
                     onClick={() => abrirModalCriacao(col.status)}
                     className="btn-add-tarefa-coluna"
-                    title={`Adicionar tarefa em ${col.titulo}`}
+                    title={`Nova tarefa em ${col.titulo}`}
                   >
                     <Plus size={16} />
                   </button>
@@ -588,139 +558,17 @@ export default function Kanban() {
       </div>
 
       {/* Modal de Criação / Edição */}
-      {modalAberto && (
-        <div className="modal-overlay" onClick={() => setModalAberto(false)}>
-          <div 
-            className="modal-content modal-formulario-tarefa" 
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="modal-cabecalho">
-              <div className="modal-titulo-bloco">
-                <Plus size={20} className="modal-icone-destaque" />
-                <div>
-                  <h3>{tarefaEmEdicao ? 'Editar Tarefa' : 'Criar Nova Tarefa'}</h3>
-                  <p>Preencha os campos para organizar as entregas no fluxo ágil.</p>
-                </div>
-              </div>
-              <button onClick={() => setModalAberto(false)} className="btn-fechar-modal" title="Fechar">
-                <X size={20} />
-              </button>
-            </div>
+      <ModalTarefa
+        aberto={modalAberto}
+        tarefa={tarefaEmEdicao}
+        coluna={colunaDestino}
+        onFechar={fecharModal}
+        onSalvar={salvarTarefa}
+        prioridades={listaPrioridades}
+        usuarios={listaUsuarios}
+        projetos={listaProjetos}
+      />
 
-            <form onSubmit={handleSubmit} className="modal-form-conteudo">
-              <div className="form-group">
-                <label htmlFor="tarefa-titulo">Título da Tarefa *</label>
-                <input
-                  id="tarefa-titulo"
-                  type="text"
-                  placeholder="Ex: Desenvolver componente de modal com animação"
-                  value={texto}
-                  onChange={(e) => setTexto(e.target.value)}
-                  className="input-estilizado"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="tarefa-desc">Descrição Detalhada (Opcional)</label>
-                <textarea
-                  id="tarefa-desc"
-                  rows={3}
-                  placeholder="Informações técnicas, links e critérios de aceitação..."
-                  value={descricao}
-                  onChange={(e) => setDescricao(e.target.value)}
-                  className="textarea-estilizado"
-                />
-              </div>
-
-              <div className="form-linha-dupla">
-                <div className="form-group">
-                  <label htmlFor="tarefa-prioridade">Prioridade</label>
-                  <select
-                    id="tarefa-prioridade"
-                    value={idPrioridade}
-                    onChange={(e) => setIdPrioridade(e.target.value)}
-                    className="select-estilizado"
-                  >
-                    {listaPrioridades.map((pr) => (
-                      <option key={pr.id} value={pr.id}>
-                        {pr.descricao || pr.nome}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="tarefa-coluna">Coluna Inicial</label>
-                  <select
-                    id="tarefa-coluna"
-                    value={colunaDestino}
-                    onChange={(e) => setColunaDestino(e.target.value)}
-                    className="select-estilizado"
-                  >
-                    <option value="afazer">A Fazer</option>
-                    <option value="andamento">Em Andamento</option>
-                    <option value="concluido">Concluído</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-linha-dupla">
-                <div className="form-group">
-                  <label htmlFor="tarefa-usuario">Responsável</label>
-                  <select
-                    id="tarefa-usuario"
-                    value={idUsuario}
-                    onChange={(e) => setIdUsuario(e.target.value)}
-                    className="select-estilizado"
-                  >
-                    {listaUsuarios.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.nome}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="tarefa-projeto">Projeto</label>
-                  <select
-                    id="tarefa-projeto"
-                    value={idProjeto}
-                    onChange={(e) => setIdProjeto(e.target.value)}
-                    className="select-estilizado"
-                  >
-                    {listaProjetos.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.nome}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {errosModal.length > 0 && (
-                <ul className="alerta-erros-lista">
-                  {errosModal.map((msg, i) => (
-                    <li key={i}>{msg}</li>
-                  ))}
-                </ul>
-              )}
-
-              <div className="modal-rodape-acoes">
-                <button type="button" onClick={() => setModalAberto(false)} className="btn-cancelar">
-                  Cancelar
-                </button>
-                <button type="submit" className="btn-salvar" disabled={salvando}>
-                  {salvando ? 'Salvando...' : tarefaEmEdicao ? 'Salvar Alterações' : 'Criar Tarefa'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Modal de Exclusão */}
       {tarefaParaExcluir && (
