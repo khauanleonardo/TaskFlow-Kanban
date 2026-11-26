@@ -77,7 +77,7 @@ describe('Kanban', () => {
     desenharKanban();
 
     expect(
-      await screen.findByText('Não foi possível carregar as tarefas da API.')
+      await screen.findByText('Erro ao carregar tarefas. Verifique a conexao.')
     ).toBeInTheDocument();
   });
 
@@ -97,9 +97,9 @@ describe('Kanban', () => {
 
     desenharKanban();
 
-    await user.click(await screen.findByTitle('Adicionar tarefa em A Fazer'));
-    await user.type(screen.getByLabelText('Título da Tarefa *'), 'Testar o Kanban');
-    await user.click(screen.getByRole('button', { name: 'Criar Tarefa' }));
+    await user.click(await screen.findByTitle('Nova tarefa em A Fazer'));
+    await user.type(screen.getByLabelText('Tarefa'), 'Testar o Kanban');
+    await user.click(screen.getByRole('button', { name: 'Salvar' }));
 
     expect(api.post).toHaveBeenCalledWith(
       '/tarefas',
